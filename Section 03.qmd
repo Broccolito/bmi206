@@ -21,8 +21,8 @@ hist(age)
 ```
 
 ```{r}
-mean(age) + qnorm(0.95) * sd(age)
-mean(age) - qnorm(0.95) * sd(age)
+mean(age) + qnorm(0.975) * sd(age)
+mean(age) - qnorm(0.975) * sd(age)
 ```
 
 ```{r}
@@ -49,4 +49,12 @@ t.test(experiment_1_group_1,experiment_1_group_2)
 
 ```{r}
 t.test(experiment_2_group_1,experiment_2_group_2)
+```
+
+# 
+
+## Exercise 3
+
+```{r}
+power.t.test(n = 10, delta = 1, sd = 2, sig.level = 0.05)
 ```
