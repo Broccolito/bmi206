@@ -1,0 +1,108 @@
+---
+title: "Section 03"
+author: "Wanjun Gu"
+format: html
+editor: visual
+---
+
+```{r}
+library(ggplot2)
+library(ggpubr)
+```
+
+## Exercise 1
+
+```{r}
+u='https://raw.githubusercontent.com/DavidQuigley/biostatistics/master/data/metabric.txt'
+curtis=read.table(u,header=TRUE,stringsAsFactors=FALSE)
+age=curtis$age
+subtype=curtis$er
+```
+
+```{r}
+mean(age)
+sd(age)
+hist(age)
+```
+
+```{r}
+mean(age) + qnorm(0.975) * sd(age)
+mean(age) - qnorm(0.975) * sd(age)
+```
+
+```{r}
+lower_bound = mean(age) - qnorm(0.975) * sd(age)
+upper_bound = mean(age) + qnorm(0.975) * sd(age)
+sum(age>lower_bound&age<upper_bound)/length(age)
+```
+
+```{r}
+sum(age >= 87)/length(age)
+```
+
+## Exercise 2
+
+```{r}
+set.seed(42)
+experiment_1_group_1=rnorm(500,8,1)
+experiment_1_group_2=rnorm(500,8.2,1)
+experiment_2_group_1=c(21.95,11.14,13.82,10.26,2.02,4.42,8.99,-9.57,2.91,12.79)
+
+experiment_2_group_2=c(161.20,163.13,313.04,129.23,281.74,15.10,40.42,-17.63,210.9,173.20)
+t.test(experiment_1_group_1,experiment_1_group_2)
+```
+
+```{r}
+t.test(experiment_2_group_1,experiment_2_group_2)
+```
+
+# 
+
+## Exercise 3
+
+```{r}
+power.t.test(n = 10, delta = 1, sd = 2, sig.level = 0.05)
+```
+
+```{r}
+pw_list = vector()
+for(n in seq(10, 80, 10)){
+  pw = power.t.test(n = n, delta = 1, sd = 2, sig.level = 0.05)$power
+  pw_list = c(pw_list, pw)
+}
+
+pw = data.frame(
+  pw = pw_list, 
+  n = seq(10, 80, 10)
+)
+
+ggplot(data = pw, aes(x = n, y = pw)) + 
+  geom_point(size = 3, color = "black", fill = "gray", shape = 21) + 
+  geom_hline(aes(yintercept = 0.8)) +
+  theme_pubr() + 
+  xlab("Sample Size") + 
+  ylab("Power") + 
+  theme(text = element_text(size = 20))
+
+barplot(pw_list, names.arg = paste0("n=", seq(10,80, 10)))
+```
+
+```{r}
+preliminary_data=c(14.1,18.0,2.9,8.7,8.5,11.6,4.2,20.6,10.3,16.8)
+mean(preliminary_data)
+sd(preliminary_data)
+```
+
+```{r}
+percent_increase = seq(0.1, 0.5, 0.1)
+pw_list = vector()
+for(pi in percent_increase){
+  pw = power.t.test(n = 5, 
+                    delta = mean(preliminary_data)*pi, 
+                    sd = sd(preliminary_data),
+                    sig.level = 0.05)$power
+  pw_list = c(pw_list, pw)
+}
+pw_list
+barplot(pw_list, names.arg = percent_increase)
+```

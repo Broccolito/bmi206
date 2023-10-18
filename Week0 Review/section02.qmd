@@ -1,0 +1,49 @@
+---
+title: "Section 02"
+author: "Wanjun Gu"
+format: html
+editor: visual
+---
+
+```{r}
+u = 'https://raw.githubusercontent.com/DavidQuigley/biostatistics/master/data/metabric.txt'
+curtis = read.table(u,header=TRUE,stringsAsFactors=FALSE)
+age = curtis$age
+subtype = curtis$er
+
+length(age)
+
+length(subtype)
+
+mean(age)
+median(age)
+sd(age)
+
+hist(age)
+
+boxplot(age~subtype)
+```
+
+```{r}
+url = 'https://raw.githubusercontent.com/DavidQuigley/biostatistics/master/data/data_covariates.txt'
+ds_covar = read.table(url,header = TRUE,stringsAsFactors = FALSE)
+assay = ds_covar$bp
+year = ds_covar$year
+sex = ds_covar$sex
+
+hist(assay)
+mean(assay)
+median(assay)
+
+boxplot(assay~sex)
+
+boxplot(assay~year)
+
+layout(matrix(1:2,1,2)) 
+boxplot(assay[year==2007]~sex[year==2007],main="2007results") 
+boxplot(assay[year==2008]~sex[year==2008],main="2008results")
+
+table(sex,year)
+```
+
+![]()
