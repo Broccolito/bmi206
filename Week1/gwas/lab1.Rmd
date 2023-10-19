@@ -1,13 +1,48 @@
 ---
 title: 'Lab 1: Linear models for quantitative genetics'
 subtitle: "BMI 206"
-author: "_Put Your Name Here_"
-date: "_Put Due Date Here_"
+author: "Wanjun Gu"
+date: "Oct 19th, 2023"
 output: html_document
 ---
 <br>
 <br>
 ### PART1: Analyzing provided genotype and phenotype data.
+
+__Load the packages needed.__
+```{r}
+suppressPackageStartupMessages({
+  if(!require("data.table")){
+    install.packages("data.table")
+    library("data.table")
+  }
+  
+  if(!require("dplyr")){
+    install.packages("dplyr")
+    library("dplyr")
+  }
+  
+  if(!require("purrr")){
+    install.packages("purrr")
+    library("purrr")
+  }
+  
+  if(!require("knitr")){
+    install.packages("knitr")
+    library("knitr")
+  }
+  
+  if(!require("ggplot2")){
+    install.packages("ggplot2")
+    library("ggplot2")
+  }
+  
+  if(!require("gridExtra")){
+    install.packages("gridExtra")
+    library("gridExtra")
+  }
+})
+```
 
 __Prepare the data.__
 Read in the genotype and phenotype matrices. 
@@ -31,159 +66,312 @@ table(genos)
 <br>
 
 How many individuals are there in the dataset and how many SNPs? (Save them in `N` and `M`, respectively.)
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 dim(genos)
 dim(phenos)
-N = ?
-M = ?
+N = 1500
+M = 10000
 ```
 
 <br>
 
 __Compute the *minor* allele frequency for every SNP. Check MAFs are <0.5.__
-```{r, eval=FALSE}
-MAFs = array(0,M)
-for(i in 1:M) {
-      MAFs[i] = ?
-}
+```{r, eval=TRUE}
+# MAFs = array(0,M)
+# for(i in 1:M) {
+#       MAFs[i] = ?
+# }
+MAFs = apply(genos, MARGIN = 2, function(x){
+  af = sum(x)/(2*length(x))
+  maf = ifelse(af >= 0.5, 1-af, af)
+  return(maf)
+})
+names(MAFs) = NULL
 MAFs[1:10]
 max(MAFs)
 ```
 <br>
 
 __Run a GWAS under an additive model and save the p-values, z-scores, and effect sizes.__
-```{r, eval=FALSE}
-pvalues = array(0,M)
-zscores = array(0,M)
-betas = array(0,M)
-for(i in 1:M) {
-	g = genos[,i]
-	res = summary(lm(?))
-	zscores[i] = ?
-	pvalues[i] = ?
-	betas[i] = ?
-}
+```{r, eval=TRUE}
+# pvalues = array(0,M)
+# zscores = array(0,M)
+# betas = array(0,M)
+# for(i in 1:M) {
+#   g = genos[,i]
+#   res = summary(lm(?))
+#   zscores[i] = ?
+#     pvalues[i] = ?
+#     betas[i] = ?
+# }
+
+res = apply(genos, MARGIN = 2, 
+            function(x){
+              d = data.frame(
+                phenotype = as.vector(phenos),
+                genotype = x
+              )
+              
+              l = summary(lm(data = d, formula = phenotype ~ genotype))
+              res = data.frame(
+                zscore = l$coefficients[2,3],
+                pvalue = l$coefficients[2,4],
+                beta = l$coefficients[2,1]
+              )
+              
+              return(res)
+            }, simplify = TRUE) %>%
+  reduce(rbind.data.frame)
 ```
 <br>
 
 Summarize the effect sizes.
-```{r, eval=FALSE}
-summary(?)
-hist(?)
+```{r, eval=TRUE}
+summary(res$beta)
+hist(res$beta)
 ```
 <br>
 
 Are there any significantly associated SNPs? If so, which SNPs are they?
-```{r, eval=FALSE}
-assoc = which(pvalues<?)
+```{r, eval=TRUE}
+p_adj = p.adjust(res$pvalue, method = "fdr")
+assoc = which(p_adj<0.05)
 assoc
 ```
 <br>
 
 How big are their effect sizes? How significant are they? 
-```{r, eval=FALSE}
-betas[assoc]
-zscores[assoc]
-pvalues[assoc]
+```{r, eval=TRUE}
+# res$beta[assoc]
+# res$zscore[assoc]
+# res$pvalue[assoc]
+kable(res[assoc,])
 ```
 <br>
 
 Draw a QQ plot for log10(p) values.
-```{r, eval=FALSE}
-obsLogPvs = sort(-log10(pvalues))
+```{r, eval=TRUE}
+obsLogPvs = sort(-log10(res$pvalue))
 expLogPvs = sort(-log10(seq(1/M,1,1/M)))
-plot(expLogPvs,obsLogPvs,main='QQ plot')
-abline( a=0, b=1 )
+
+qqplot_d = data_frame(
+  obsLogPvs,
+  expLogPvs,
+) %>%
+  mutate(fdr = 10^(-obsLogPvs)) %>%
+  mutate(fdr = p.adjust(fdr)) %>%
+  mutate(sig = ifelse(fdr <= 0.05, "Significant", "Non-significant"))
+
+# plot(expLogPvs,obsLogPvs,main='QQ plot')
+
+ggplot(data = qqplot_d, aes(x = expLogPvs, y = obsLogPvs)) + 
+  geom_point(aes(fill = sig), size = 2, color = "black", shape = 21) + 
+  scale_fill_manual(values = c("gray", "red")) + 
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") + 
+  labs(fill = "") + 
+  xlab("Experimental -log(P)") + 
+  ylab("Observed -log(P)") + 
+  theme_light() + 
+  theme(text = element_text(size = 15))
+
+# abline( a=0, b=1 )
 #label the significant SNPs red 
-points(expLogPvs[(M-length(assoc)):M],obsLogPvs[(M-length(assoc)):M],col="red")
+# points(expLogPvs[(M-length(assoc)):M],obsLogPvs[(M-length(assoc)):M],col="red")
 ```
 <br>
 
 Is there inflation? Use the chi-square statistics to check.
-```{r, eval=FALSE}
-chis = zscores^2
+
+The median of Chi square distribution with one degree of freedom is 0.454
+
+```{r, eval=TRUE}
+chis = res$zscore^2
 lambdaGC = median(chis)/0.454 # why .454?
 lambdaGC
 ```
 <br>
 
 Plot the phenotype predictions for the most significant SNP.
-```{r, eval=FALSE}
-topSNP = genos[,order(pvalues)[?]]
+```{r, eval=TRUE}
+topSNP = genos[,order(res$pvalue)[1]]
 plot(topSNP,phenos)
 abline(lm(phenos~topSNP)$coeff,col="red")
 ```
 <br>
 
 __Build a linear predictor of the phenotype using the associated SNPs.__
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 ypred = array(0,N)
 for(i in 1:N) {
-      ypred[i] = genos[i,assoc] %*% ?
+  ypred[i] = genos[i,assoc] %*% res$beta[assoc]
 }
 plot(ypred,phenos)
 ```
 <br>
 
 What is the correlation between the predicted phenotype and the true phenotype?
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 cor(ypred,phenos)
 ```
 <br>
 
 __BONUS: Test each of the associated SNPs for non-linearity.__
-```{r, eval=FALSE}
-hp = array(0,length(assoc))
+
+<br>
+
+The p-value from the Kruskal-Wallis test on residuals are nominally significant. This indicate that there could be some non-linearity in the dataset.
+
+```{r, eval=TRUE}
+hp = rep(0, length(assoc)) 
+residuals_linear = numeric(length(assoc))
+residuals_nonlinear = numeric(length(assoc))
 for (i in 1:length(assoc)) {
-  g = genos[,assoc[i]]
+  g = genos[, assoc[i]]
   h = g
-  h[h==2]=0
-  #Hint: can use anova(lm(?),lm(?)) or summary(lm(?))
-  hp[i] <- anova( lm(?), lm(?) )$Pr[2] #skip multiple test correction for now
+  h[h == 2] = 0
+  
+  linear_model = lm(phenos ~ g)
+  nonlinear_model = lm(phenos ~ h)
+  
+  residuals_linear[i] = sum(residuals(linear_model)^2)
+  residuals_nonlinear[i] = sum(residuals(nonlinear_model)^2)
 }
-hp 
+
+kw_p_values = kruskal.test(list(residuals_linear, residuals_nonlinear))$p.value
+
+kw_p_values
+
+# hp = array(0,length(assoc))
+# for (i in 1:length(assoc)) {
+#   g = genos[,assoc[i]]
+#   h = g
+#   h[h==2]=0
+#   #Hint: can use anova(lm(?),lm(?)) or summary(lm(?))
+#   hp[i] <- anova( lm(phenos~g), lm(phenos~h) )$Pr[2] #skip multiple test correction for now
+# }
+# hp 
+
 ```
 <br>
 
-BONUS: Visualize a linear SNP and a non-linear SNP.
-```{r, eval=FALSE}
-par( mfrow=c(1,2) )
-plot( ?, ? )
-points( c(0,1,2), tapply( ?, ?, mean ), col=2, pch=16, cex=3 )
-lines( c(0,1,2), tapply( ?, ?, mean ), col=2, lwd=2  )
-plot( ?, ? )
-points( c(0,1,2), tapply( ?, ?, mean ), col=2, pch=16, cex=3 )
-lines( c(0,1,2), tapply( ?, ?, mean ), col=2, lwd=2  )
+__BONUS: Visualize a linear SNP and a non-linear SNP.__
+
+<br>
+
+Method: Apply a co-dominant regression model and compare the group mean between heterozygotes and
+homozygote mutants.
+
+In the perfect linear model, the beta of wt->het should equal to het->hom. In non-linear cases, the betas should be different.
+
+```{r, eval=TRUE}
+non_linear_diff_list = vector()
+for (i in 1:length(assoc)){
+  g = as.factor(genos[, assoc[i]])
+  coeff = lm(phenos ~ g)$coef
+  beta0 = coeff[1]
+  beta1 = coeff[2]
+  beta2 = coeff[3]
+  
+  beta_het = beta1 - beta0
+  beta_hom = beta2 - beta1
+  diff_hom_het = beta_hom - beta_het
+  diff_het_wt = beta_het - beta0
+  non_linear_diff = diff_hom_het - diff_het_wt
+  non_linear_diff_list = c(non_linear_diff_list, non_linear_diff)
+}
+non_linear_diff_list = abs(non_linear_diff_list)
+```
+
+```{r, eval=TRUE}
+non_linear_data = data.frame(
+  genotype = genos[, assoc[which.max(non_linear_diff_list)]],
+  phenotype = as.vector(phenos)
+)
+
+plt1 = ggplot(data = non_linear_data, aes(x = as.factor(genotype), y = phenotype)) + 
+  geom_boxplot() + 
+  xlab("Genotype") + 
+  ggtitle(label = "Nonlinear", subtitle = "SNP1")
+
+linear_data = data.frame(
+  genotype = genos[, assoc[which.min(non_linear_diff_list)]],
+  phenotype = as.vector(phenos)
+)
+
+plt2 = ggplot(data = linear_data, aes(x = as.factor(genotype), y = phenotype)) + 
+  geom_boxplot() + 
+  xlab("Genotype") + 
+  ggtitle(label = "Linear", subtitle = "SNP4")
+
+grid.arrange(plt1, plt2)
+
+
+# par(mfrow=c(1,2))
+# 
+# plot(g = genos[, assoc[]], phenos)
+# points( c(0,1,2), tapply( ?, ?, mean ), col=2, pch=16, cex=3 )
+# lines( c(0,1,2), tapply( ?, ?, mean ), col=2, lwd=2  )
+# plot( ?, ? )
+# points( c(0,1,2), tapply( ?, ?, mean ), col=2, pch=16, cex=3 )
+# lines( c(0,1,2), tapply( ?, ?, mean ), col=2, lwd=2  )
 ```
 <br>
 
 __Repeat the GWAS to test for recessive rather than additive genetic effects.__
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 genos2 = genos
-genos2[genos<?]=1
-pvalues2 = array(0,M)
-zscores2 = array(0,M)
-betas2 = array(0,M)
-for(i in 1:M) {
-  g = genos2[,i]
-  res = summary(lm(?))
-  zscores2[i] = ?
-  pvalues2[i] = ?
-  betas2[i] = ?
-}
+genos2[genos<1]=1
+
+res2 = apply(genos2, MARGIN = 2, 
+             function(x){
+               d = data.frame(
+                 phenotype = as.vector(phenos),
+                 genotype = x
+               )
+               
+               l = summary(lm(data = d, formula = phenotype ~ genotype))
+               res = data.frame(
+                 zscore = l$coefficients[2,3],
+                 pvalue = l$coefficients[2,4],
+                 beta = l$coefficients[2,1]
+               )
+               
+               return(res)
+             }, simplify = TRUE) %>%
+  reduce(rbind.data.frame)
+
+# pvalues2 = array(0,M)
+# zscores2 = array(0,M)
+# betas2 = array(0,M)
+# for(i in 1:M) {
+#   g = genos2[,i]
+#   res = summary(lm(?))
+#   zscores2[i] = ?
+#     pvalues2[i] = ?
+#     betas2[i] = ?
+# }
 ```
 <br>
 
 __Are the same SNPs significant or not?__
-```{r, eval=FALSE}
-assoc2 = which(pvalues2<?)
+```{r, eval=TRUE}
+p_adj2 = p.adjust(res2$pvalue, n = dim(res2)[1], method = "fdr")
+
+assoc2 = which(p_adj2<0.05)
 assoc2
 ```
 <br>
 
 __How did the effect sizes change?__
-```{r, eval=FALSE}
-plot(?,?)
+<br>
+The effect size becomes larger
+
+```{r, eval=TRUE}
+plot(res$beta,res2$beta)
+abline(a = 0, b = 1, lty = "dashed")
+
+summary(lm(d = data.frame(beta1 = res$beta, beta2 = res2$beta),
+           formula = beta2 ~ beta1))
 ```
 <br>
 
@@ -195,6 +383,7 @@ N = 1000 #number of individuals
 M = 30   #number of non-causal SNPs
 gs = matrix(0,nrow=N,ncol=M)
 ```
+
 <br>
 
 __Simulate a GWAS data set.__
@@ -204,6 +393,7 @@ set.seed = (42) #set random seed so we all get the same numbers
 MAF = 0.5
 gC = rbinom(N,1,MAF) #causal variant
 ```
+
 <br>
 
 Then, simulate the phenotypes given the causal variant.
@@ -227,62 +417,89 @@ for(i in 1:10) {
 <br>
 
 Do the same for 10 moderate LD partners (rho=0.6).
-```{r,eval=FALSE}
-?
+```{r,eval=TRUE}
+rho = 0.6
+for(i in 11:20) {
+  idx = rbinom(N,1,rho)
+  gs[,i]=gC*idx+rbinom(N,1,MAF)*(1-idx)
+  # test they have the right LD empirically
+  cat( 'Observed LD = ', cor( gs[,i], gC ), '\n' )
+  # Bonus: prove they have the right LD theoretically
+}
 ```
 <br>
 
 Do the same for 10 independent SNPs (rho=0).
-```{r,eval=FALSE}
-?
+
+```{r,eval=TRUE}
+rho = 0
+for(i in 21:30) {
+  idx = rbinom(N,1,rho)
+  gs[,i]=gC*idx+rbinom(N,1,MAF)*(1-idx)
+  # test they have the right LD empirically
+  cat( 'Observed LD = ', cor( gs[,i], gC ), '\n' )
+  # Bonus: prove they have the right LD theoretically
+}
 ```
 
 __Run GWAS on the causal variant. Then run GWAS on the other variants. Keep track of the zscores only.__
-```{r,eval=FALSE}
+```{r,eval=TRUE}
 zsC = summary(lm(pheno~gC))$coef[2,3]
-zs = sapply( 1:M, function(i) summary(lm(pheno~gs[,i]))$coef[2,3] )
+zs = sapply(1:M, function(i){
+  try({
+    return(
+      summary(lm(pheno~gs[,i]))$coef[2,3]
+    )
+  }, silent = TRUE)
+  return(0)
+})
 ```
 <br>
 
 Visualize the relationship between the mean z-scores at the tag SNPs and the z-score at the causal SNP.
-```{r,eval=FALSE}
-par( mfrow=c(2,2) )
+```{r,eval=TRUE}
+par(mfrow=c(2,2) )
 breaks = hist(c(0,zsC,zs),plot=F)$breaks
-hist(?,breaks=breaks, col=1, main='LD partners')
-abline(v=?)
-hist(?,breaks=breaks, col=2, main='Low-LD partner SNPs')
-abline(v=?)
-hist(?,breaks=breaks, col=3, main='Independent SNPs')
-abline(v=?)
+hist(zs[1:10],breaks=breaks, col=1, main='LD partners', xlab = "Z-Score")
+abline(v=zsC)
+hist(zs[11:20],breaks=breaks, col=2, main='Low-LD partner SNPs', xlab = "Z-Score")
+abline(v=zsC)
+hist(zs[21:30],breaks=breaks, col=3, main='Independent SNPs', xlab = "Z-Score")
+abline(v=zsC)
 ```
 <br>
 
 __BONUS: Perform LD score regression. First, calculate the LD scores. There should be M+1 of them.__
 ```{r, eval=FALSE}
-ldscores = ?
+# ldscores = ?
+#   ldscores
+
+ldscores = c(cor(gC,gC),cor(gC, gs))^2
 ldscores
 ```
+
 <br>
 
-BONUS: Visualize LD score regression.
+__BONUS: Visualize LD score regression.__
 ```{r,eval=FALSE}
-chis = c( ?, ? )^2
-plot( ?, chis, ylab=expression(chi^2) )
-#test for inflation
-lambdaGC = median(chis)/0.454
-lambdaGC
+# chis = c( ?, ? )^2
+# plot( ?, chis, ylab=expression(chi^2) )
+# #test for inflation
+# lambdaGC = median(chis)/0.454
+# lambdaGC
 ```
 <br>
 
-BONUS: Estimate heritability.
+__BONUS: Estimate heritability.__
 ```{r,eval=FALSE}
-summary( lm( ? )$coef[2,1] * M/N
+# summary( lm( ? )$coef[2,1] * M/N
 ```
+
 <br>
 
-BONUS: What is the true heritability?
+__BONUS: What is the true heritability?__
 ```{r, eval=FALSE}
-var(?) / var(?)
+var(gC*beta) / var(pheno)
 ```
 
 
