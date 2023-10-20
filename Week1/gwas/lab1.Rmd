@@ -435,12 +435,11 @@ abline(v=zsC)
 <br>
 
 __BONUS: Perform LD score regression. First, calculate the LD scores. There should be M+1 of them.__
-```{r, eval=FALSE}
-# ldscores = ?
-#   ldscores
-
-ldscores = c(cor(gC,gC),cor(gC, gs))^2
-ldscores
+```{r, eval=TRUE}
+ldscores = cor(cbind(gC, gs))^2
+colnames(ldscores) = paste0("SNP", 0:30)
+rownames(ldscores) = paste0("SNP", 0:30)
+ldscores = apply(ldscores, 1, sum)
 ```
 
 <br>
@@ -448,9 +447,9 @@ ldscores
 how to calculate the chi square of ld score regression? fill in the ? in the following code snippet
 
 __BONUS: Visualize LD score regression.__
-```{r,eval=FALSE}
-chis = c( ?, ? )^2
-plot( ?, chis, ylab=expression(chi^2) )
+```{r,eval=TRUE}
+chis = c(zsC,zs)^2
+plot(ldscores, chis, ylab=expression(chi^2) )
 #test for inflation
 lambdaGC = median(chis)/0.454
 lambdaGC
@@ -458,14 +457,14 @@ lambdaGC
 <br>
 
 __BONUS: Estimate heritability.__
-```{r,eval=FALSE}
-# summary( lm( ? )$coef[2,1] * M/N
+```{r,eval=TRUE}
+summary(lm(chis~ldscores))$coef[2,1] * M/N
 ```
 
 <br>
 
 __BONUS: What is the true heritability?__
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 var(gC*beta) / var(pheno)
 ```
 
