@@ -219,38 +219,21 @@ __BONUS: Test each of the associated SNPs for non-linearity.__
 
 <br>
 
-The p-value from the Kruskal-Wallis test on residuals are nominally significant. This indicate that there could be some non-linearity in the dataset.
+The p-value from the ANOVA test is significant for the first SNP (unadjusted). This indicate that the first variant may be non-linearily associated with the phenotype.
 
 ```{r, eval=TRUE}
-hp = rep(0, length(assoc)) 
-residuals_linear = numeric(length(assoc))
-residuals_nonlinear = numeric(length(assoc))
+hp = array(0,length(assoc))
 for (i in 1:length(assoc)) {
-  g = genos[, assoc[i]]
+  g = genos[,assoc[i]]
   h = g
-  h[h == 2] = 0
+  h[h==2]=0
+  #Hint: can use anova(lm(?),lm(?)) or summary(lm(?))
+  linear_model = lm(phenos~g)
+  non_linear_model = lm(phenos~g+h)
   
-  linear_model = lm(phenos ~ g)
-  nonlinear_model = lm(phenos ~ h)
-  
-  residuals_linear[i] = sum(residuals(linear_model)^2)
-  residuals_nonlinear[i] = sum(residuals(nonlinear_model)^2)
+  hp[i] = anova(linear_model, non_linear_model)$Pr[2] #skip multiple test correction for now
 }
-
-kw_p_values = kruskal.test(list(residuals_linear, residuals_nonlinear))$p.value
-
-kw_p_values
-
-# hp = array(0,length(assoc))
-# for (i in 1:length(assoc)) {
-#   g = genos[,assoc[i]]
-#   h = g
-#   h[h==2]=0
-#   #Hint: can use anova(lm(?),lm(?)) or summary(lm(?))
-#   hp[i] <- anova( lm(phenos~g), lm(phenos~h) )$Pr[2] #skip multiple test correction for now
-# }
-# hp 
-
+hp
 ```
 <br>
 
@@ -258,50 +241,32 @@ __BONUS: Visualize a linear SNP and a non-linear SNP.__
 
 <br>
 
-Method: Apply a co-dominant regression model and compare the group mean between heterozygotes and
-homozygote mutants.
-
-In the perfect linear model, the beta of wt->het should equal to het->hom. In non-linear cases, the betas should be different.
-
-```{r, eval=TRUE}
-non_linear_diff_list = vector()
-for (i in 1:length(assoc)){
-  g = as.factor(genos[, assoc[i]])
-  coeff = lm(phenos ~ g)$coef
-  beta0 = coeff[1]
-  beta1 = coeff[2]
-  beta2 = coeff[3]
-  
-  beta_het = beta1 - beta0
-  beta_hom = beta2 - beta1
-  diff_hom_het = beta_hom - beta_het
-  diff_het_wt = beta_het - beta0
-  non_linear_diff = diff_hom_het - diff_het_wt
-  non_linear_diff_list = c(non_linear_diff_list, non_linear_diff)
-}
-non_linear_diff_list = abs(non_linear_diff_list)
-```
+In this figure, the coral line of the boxplot is the mean of each group.
 
 ```{r, eval=TRUE}
 non_linear_data = data.frame(
-  genotype = genos[, assoc[which.max(non_linear_diff_list)]],
+  genotype = genos[, assoc[which.min(hp)]],
   phenotype = as.vector(phenos)
 )
 
 plt1 = ggplot(data = non_linear_data, aes(x = as.factor(genotype), y = phenotype)) + 
   geom_boxplot() + 
+  stat_summary(fun = mean, geom = "errorbar", aes(ymax = ..y.., ymin = ..y..),
+               width = .75, linetype = "dashed", color = "coral") +
   xlab("Genotype") + 
   ggtitle(label = "Nonlinear", subtitle = "SNP1")
 
 linear_data = data.frame(
-  genotype = genos[, assoc[which.min(non_linear_diff_list)]],
+  genotype = genos[, assoc[which.max(hp)]],
   phenotype = as.vector(phenos)
 )
 
 plt2 = ggplot(data = linear_data, aes(x = as.factor(genotype), y = phenotype)) + 
   geom_boxplot() + 
+  stat_summary(fun = mean, geom = "errorbar", aes(ymax = ..y.., ymin = ..y..),
+               width = .75, linetype = "dashed", color = "coral") +
   xlab("Genotype") + 
-  ggtitle(label = "Linear", subtitle = "SNP4")
+  ggtitle(label = "Linear", subtitle = "SNP2")
 
 grid.arrange(plt1, plt2)
 
@@ -480,13 +445,15 @@ ldscores
 
 <br>
 
+how to calculate the chi square of ld score regression? fill in the ? in the following code snippet
+
 __BONUS: Visualize LD score regression.__
 ```{r,eval=FALSE}
-# chis = c( ?, ? )^2
-# plot( ?, chis, ylab=expression(chi^2) )
-# #test for inflation
-# lambdaGC = median(chis)/0.454
-# lambdaGC
+chis = c( ?, ? )^2
+plot( ?, chis, ylab=expression(chi^2) )
+#test for inflation
+lambdaGC = median(chis)/0.454
+lambdaGC
 ```
 <br>
 
