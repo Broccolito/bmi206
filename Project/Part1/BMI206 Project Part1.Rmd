@@ -61,6 +61,10 @@ summary(d)
 
 In this dataset, there are **2,174** motifs grouped into **286** clusters. For each motif/cluster, there are measurements of motif total width (*numeric*), offset relative to left/right coordinate of full cluster width (*numeric*), as well as their relative_orientations (*cetagorical/binary*). Here we showed the distribution of the length of Motifs
 
+Cognate transcription factors (TFs) can be assigned to footprints on the basis of matching consensus sequences, enabling the TF-focused analysis of gene regulation and regulatory networks10 and of the evolution of regulatory factor binding patterns
+
+Consensus footprints were on average 16bp wide (middle 95%: 7–44 bp; 90%: 7–36bp; 50%: 9–21bp) and were distributed across all classes of DHS, albeit with enrichment in promoter-proximal elements owing to their generally elevated cleavage density (Extended Data Fig.3b, c)
+
 
 ## Distribution of the length of Motifs
 ```{r}
