@@ -1,0 +1,74 @@
+---
+title: "BMI206 Project Part 1"
+author: "Wanjun Gu, Ashvin Ravi, Reet Mishra"
+date: "2023-10-24"
+output: html_document
+---
+
+## Data acquisition
+
+Paper Title: **Global reference mapping of human transcription factor footprints**
+Paper reference: Vierstra, J. et al. Global reference mapping of human transcription factor footprints. Nature 583, 729–736 (2020)
+
+Data is downloaded from: https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-020-2528-x/MediaObjects/41586_2020_2528_MOESM4_ESM.xlsx
+
+## Load libraries
+```{r}
+
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(data.table)
+  library(readxl)
+})
+```
+
+## Load data
+```{r}
+cluster = read_excel("supp table 2.xlsx", sheet = "Archetype clusters")
+motifs = read_excel("supp table 2.xlsx", sheet = "Motifs")
+
+d = left_join(cluster, motifs, by = "Cluster_ID")
+```
+## Summary of the dataset
+```{r}
+glimpse(d)
+```
+
+## Column description
+
+| Column  descriptions                                         |
+| ------------------------------------------------------------ |
+| Cluster_ID: Motif cluster  number                            |
+| Name: Cluster name (motif, DBD  or individual TF gene names) |
+| DBD: DNA-binding domain family                               |
+| Seed_motif: Motif to which  other cluster members are aligned |
+| Total_width: Total with of all  aligned motifs within cluster |
+| Consensus_left: Left boundary  of archetype motif            |
+| Consensus_right: Right  boundary of archetype motif          |
+| Cluster_size: Number of motifs  in cluster                   |
+| Motif: Motif model name                                      |
+| Database: Source of motif  model                             |
+| Consensus: Model consensus  sequence                         |
+| Relative_orientation: Relative  orientation of motof model to cluster seed motif |
+| Width: Motif model width                                     |
+| Left_offset: Offset relative  to left coordinate of full cluster width |
+| Right_offset: Offset relative  to right coordinate of full cluster width |
+
+
+```{r}
+summary(d)
+```
+
+In this dataset, there are **2,174** motifs grouped into **286** clusters. For each motif/cluster, there are measurements of motif total width (*numeric*), offset relative to left/right coordinate of full cluster width (*numeric*), as well as their relative_orientations (*cetagorical/binary*). Here we showed the distribution of the length of Motifs
+
+
+## Distribution of the length of Motifs
+```{r}
+hist(d$Width, main = "Distributions of the length of Motifs", 
+     xlab = "Length", breaks = 25)
+```
+
+
+
+
+
