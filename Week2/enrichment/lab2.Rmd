@@ -9,7 +9,7 @@ output: html_document
 <br>
 
 Import needed packages and set a random number seed
-```{r, message=FALSE}
+```{r, message=TRUE}
 #load packages
 if(!require("BiocManager", quietly = TRUE)){
   install.packages("BiocManager")
@@ -30,7 +30,7 @@ if(!require("dplyr")){
   library("dplyr")
 }
 
-set.seed(10)
+set.seed(492357816)
 ```
 <br>
 
@@ -45,7 +45,7 @@ hits2=toGRanges(read.table("hits2.bed",sep="\t"))
 
 __Q1. How many regions are in hits1? How many in hits2?__ 
 There are 140 regions in hist1 and 322 regions in hist2
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 dim(as.data.frame(hits1@ranges))[1]
 dim(as.data.frame(hits2@ranges))[1]
 ```
@@ -56,7 +56,7 @@ __Q2. Are hits1 and hits2 proper subsets of all the tested regions? Check how ma
 Identical regions in hits1 and hits2 can be found in all. This indicates that both hits1 and hits2 are subsets of all.
 
 Code to identify overlaps
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 (findOverlaps(all, hits1, type = "any") %>%
    as.data.frame() %>%
    dim())[1]
@@ -97,7 +97,7 @@ The next few questions explore the overlap of genomic regions in hits1 and hits2
 __Q3. How many regions overlap? How many regions are exactly identical?__
 
 6 regions overlap in hits1 and hits2 and similarly, 6 regions are exactly identical in hits1 and hits2.
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 hits1_hits2_merged = inner_join(hits1_df, hits2_df, by = "chr_start_end")
 dim(hits1_hits2_merged)[1]
 
@@ -120,121 +120,213 @@ __Q4. Generate a set of random genomic regions of the same size as hits1. Match 
 - How do the results change with number of resamples? Random seed? 
 <br>
 
-```{r,eval=FALSE}
-# set.seed(492357816)
-# random_gr = circularRandomizeRegions(hits1, genome = "hg19")
-# numOverlaps(hits1, random_gr)
-# numOverlaps(hits2, random_gr)
+```{r,eval=TRUE}
+genomic_lengths = width(hits1)
+mean_length = mean(genomic_lengths)
+sd_length = sd(genomic_lengths)
 
+set.seed(492357816)
+random_gr = createRandomRegions(nregions = dim(hits1_df)[1], 
+                                length.mean = mean_length, 
+                                length.sd = sd_length)
+
+numOverlaps(hits1, random_gr)
+numOverlaps(hits2, random_gr)
+
+```
+
+Since the random region generated does not overlap with either regions in hits1 or hits2, it is hard to say whether the random regions generated using this method will overlap with hits1 or hits2 more. (Not with further testing)
+
+```{r}
+# Run perm test using the permTest function
+set.seed(492357816)
+perm_hits1_result = suppressWarnings({
+  permTest(A = hits1, B = hits2, ntimes = 1000, 
+           randomize.function = randomizeRegions, 
+           evaluate.function = numOverlaps)
+})
+plot(perm_hits1_result)
+```
+
+<br>
+
+```{r}
+set.seed(492357816)
+perm_hits2_result = suppressWarnings({
+  permTest(A = hits2, B = hits1, ntimes = 1000, 
+           randomize.function = randomizeRegions, 
+           evaluate.function = numOverlaps)
+})
+plot(perm_hits2_result)
+```
+
+
+```{r}
+# Run perm test using the self-defined function
+set.seed(492357816)
 hits1_overlap_list = vector()
 hits2_overlap_list = vector()
-
-createRandomRegions()
-
-overlapPermTest(hits1, B, ntimes=10, force.parallel=TRUE)
-
-permTest(A = hits1, B = hits2, ntimes = 1000, 
-         randomize.function = randomizeRegions, 
-         evaluate.function = numOverlaps)
-
 for(i in 1:1000){
-  random_gr = randomizeRegions(hits1, genome = "hg19")
+  random_gr = suppressWarnings({randomizeRegions(hits1, genome = "hg19")})
   hits1_overlap = numOverlaps(hits1, random_gr)
   hits2_overlap = numOverlaps(hits2, random_gr)
   hits1_overlap_list = c(hits1_overlap_list, hits1_overlap)
   hits2_overlap_list = c(hits2_overlap_list, hits2_overlap)
 }
 
-t.test(hits1_overlap_list, hits2_overlap_list)
+self_perm_result = t.test(hits1_overlap_list, hits2_overlap_list)
 
-mean(hits1_overlap_list)
-sd(hits1_overlap_list)
-
-mean(hits2_overlap_list)
-sd(hits2_overlap_list)
-
+perm_result
+self_perm_result
 ```
+
+Based on the results of both the perTest function and the self-defined permutation test, the random simulated genomic region seems to overlap with regions in hits2 more than it does with hits1. Based on the self-implemented permutation test, the z score is approximately -4.5. This indicates that on average, a randomly generated region overlaps with  regions in hits1 ~4.5 times less than it overlaps with regions in hits2.
+
+<br>
 
 ```{r}
-## Sanity check
-# 
-genomic_lengths = width(random_gr)
-mean(genomic_lengths)
-sd(genomic_lengths)
-
-genomic_lengths = width(hits1)
-mean(genomic_lengths)
-sd(genomic_lengths)
-
+# t.test(width(hits1), width(hits2))
+mean(width(hits1)) * dim(hits1_df)[1]
+mean(width(hits2)) * dim(hits2_df)[1]
 ```
+
+The difference can be explained by the comparison of the product of average region width and region count. hits1 regions are on average wider but there are significantly more regions in hits2, making hits2 cover a broader genomic region in general and therefore landing more hits by chance.
+
+<br>
+
+The smallest p-value that we could have gotten is zero, given that the number of resamples is ~infinitely large.
+
+```{r}
+run_perm_test = function(random_seed = 492357816){
+  set.seed(random_seed)
+  hits1_overlap_list = vector()
+  hits2_overlap_list = vector()
+  for(i in 1:1000){
+    random_gr = suppressWarnings({randomizeRegions(hits1, genome = "hg19")})
+    hits1_overlap = numOverlaps(hits1, random_gr)
+    hits2_overlap = numOverlaps(hits2, random_gr)
+    hits1_overlap_list = c(hits1_overlap_list, hits1_overlap)
+    hits2_overlap_list = c(hits2_overlap_list, hits2_overlap)
+  }
+  self_perm_result = t.test(hits1_overlap_list, hits2_overlap_list)
+  print(self_perm_result)
+}
+
+run_perm_test(43479)
+run_perm_test(89669)
+run_perm_test(91617)
+```
+
+Here three different random seeds are used to run the permutation test. Although the effect size is consistantly negative, it seems to fluctuate between -1.5 to -3.6. This is to say that, given large enough numbers of resamples, random seeds will not change the overlap direction of the test. However, as the number of resamples get larger, the test statistics will become more stable (p-value more significant). On the contrary, when the number of resamples get smaller, the test statistics will be more volatile. 
 
 <br>
 
 __Q5. Repeat Q4 switching the roles of hits1 and hits2. Are conclusions similar?__
-```{r, eval=FALSE}
-?
+```{r, eval=TRUE}
+set.seed(492357816)
+hits1_overlap_list = vector()
+hits2_overlap_list = vector()
+for(i in 1:1000){
+  random_gr = suppressWarnings({randomizeRegions(hits2, genome = "hg19")})
+  hits1_overlap = numOverlaps(hits1, random_gr)
+  hits2_overlap = numOverlaps(hits2, random_gr)
+  hits1_overlap_list = c(hits1_overlap_list, hits1_overlap)
+  hits2_overlap_list = c(hits2_overlap_list, hits2_overlap)
+}
+
+self_perm_result = t.test(hits1_overlap_list, hits2_overlap_list)
+self_perm_result
+```
+
+The conclusions are relatively similar. This suggests that the chances of a randomly generated region overlapping with two genomic regions of interest is largely dependently on the overall size of the regions of interests.
+
+
+<br>
+
+
+__Q6. Create a random bootstrap sample of regions from all tested regions.__ <br>
+- Do these random regions overlap hits2 more or less than hits1 does? <br>
+- How does this test differ from the one in Q4? Look at the z-score and p-value. 
+
+These random regions overlap hits2 more than hits1 does. reasons explained in the previous question.
+The p values are comparible but the z score is smaller in this test than what was implemented in the previous tests. 
+
+<br>
+
+```{r, eval=TRUE}
+set.seed(492357816)
+btsp_hits1_result = permTest(A = hits1, B = hits2, ntimes = 1000, 
+                              randomize.function = resampleRegions, 
+                              universe = all, 
+                              evaluate.function = numOverlaps)
+btsp_hits1_result
+plot(btsp_hits1_result)
+```
+<br>
+
+
+__Q7. Repeat Q6 switching the role of hits1 and hits2. Are conclusions similar?__
+
+The conclusion is very similar.
+
+```{r,eval=TRUE}
+set.seed(492357816)
+btsp_hits2_result = permTest(A = hits2, B = hits1, ntimes = 1000, 
+                              randomize.function = resampleRegions, 
+                              universe = all, 
+                              evaluate.function = numOverlaps)
+btsp_hits2_result
+plot(btsp_hits2_result)
 ```
 <br>
   
-  __Q6. Create a random bootstrap sample of regions from all tested regions.__ <br>
-  - Do these random regions overlap hits2 more or less than hits1 does? <br>
-  - How does this test differ from the one in Q4? Look at the z-score and p-value. <br>
-  ```{r, eval=FALSE}
-?
-  ```
+__Q8. Which null distribution would you use in your own research and why?__
 <br>
 
-__Q7. Repeat Q6 switching the role of hits1 and hits2. Are conclusions similar?__
+If my research primarily concerns regions of interests in hits1, then I would use the NULL distribution generated based on hits1. If I primarily focus on hits2, then I would use the NULL distro simulated using hits2. This way, I can get the most accurate depiction of the distribution of my own regions of interests.
+  
+<br>
+The next few questions involve downloading genomics data. You can choose sets of regions, e.g, gene annotation, ChIPseq, RNAseq, ATACseq, GWAS SNPs
+
+
+<br>
+  
+__Q9. Using data you download, can you infer what function was tested in the assay that discovered hits1 and hits2? Choose data sets that will be informative about candidate functions. Compute overlaps or mean values of the downloaded data for the union of hits1 and hits2__
+
 ```{r,eval=FALSE}
-?
-  ```
-  <br>
-  
-  __Q8. Which null distribution would you use in your own research and why?__
-  <br>
-  
-  
-  <br>
-  The next few questions involve downloading genomics data. You can choose sets of regions, e.g, gene annotation, ChIPseq, RNAseq, ATACseq, GWAS SNPs
-  
-  
-  <br>
-  
-  __Q9. Using data you download, can you infer what function was tested in the assay that discovered hits1 and hits2? Choose data sets that will be informative about candidate functions. Compute overlaps or mean values of the downloaded data for the union of hits1 and hits2__
-  ```{r,eval=FALSE}
-  ?
-    ```
-    
-    <br>
-    __Guess what type of genomic element these hits are (i.e., what assay was performed))__
-    
-    <br>
-    <br>
-    
-    __BONUS Q10. Do you think hits1 and hits2 function in the same cell type?__ <br>
-    - Build on your analysis in Q9 by separately testing overlaps with hits1 and hits2. Choose datasets that are from several different cell types <br>
-    <br>
-    
-    __BONUS Q11: Try matching the random regions more closely to regions in hits1__ <br>
-    - On what variables will you match them? e.g., spacing, chromosome, GC-content, distance to nearest gene, masking <br>
-    - How does matching affect the z-score and p-value? <br>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+```
+
+<br>
+__Guess what type of genomic element these hits are (i.e., what assay was performed))__
+
+
+
+<br>
+<br>
+
+__BONUS Q10. Do you think hits1 and hits2 function in the same cell type?__ <br>
+- Build on your analysis in Q9 by separately testing overlaps with hits1 and hits2. Choose datasets that are from several different cell types <br>
+<br>
+
+__BONUS Q11: Try matching the random regions more closely to regions in hits1__ <br>
+- On what variables will you match them? e.g., spacing, chromosome, GC-content, distance to nearest gene, masking <br>
+- How does matching affect the z-score and p-value? <br>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
