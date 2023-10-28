@@ -1,8 +1,8 @@
 ---
 title: 'Lab 2: Enrichment Analyses'
 subtitle: "BMI 206"
-author: "__Put Your Name Here__"
-date: "1`/5/2021"
+author: "Wanjun Gu"
+date: "10/27/2023"
 output: html_document
 ---
 <br>
@@ -256,9 +256,9 @@ The p values are comparible but the z score is smaller in this test than what wa
 ```{r, eval=TRUE}
 set.seed(492357816)
 btsp_hits1_result = permTest(A = hits1, B = hits2, ntimes = 1000, 
-                              randomize.function = resampleRegions, 
-                              universe = all, 
-                              evaluate.function = numOverlaps)
+                             randomize.function = resampleRegions, 
+                             universe = all, 
+                             evaluate.function = numOverlaps)
 btsp_hits1_result
 plot(btsp_hits1_result)
 ```
@@ -272,46 +272,152 @@ The conclusion is very similar.
 ```{r,eval=TRUE}
 set.seed(492357816)
 btsp_hits2_result = permTest(A = hits2, B = hits1, ntimes = 1000, 
-                              randomize.function = resampleRegions, 
-                              universe = all, 
-                              evaluate.function = numOverlaps)
+                             randomize.function = resampleRegions, 
+                             universe = all, 
+                             evaluate.function = numOverlaps)
 btsp_hits2_result
 plot(btsp_hits2_result)
 ```
 <br>
-  
+
 __Q8. Which null distribution would you use in your own research and why?__
 <br>
 
 If my research primarily concerns regions of interests in hits1, then I would use the NULL distribution generated based on hits1. If I primarily focus on hits2, then I would use the NULL distro simulated using hits2. This way, I can get the most accurate depiction of the distribution of my own regions of interests.
-  
+
 <br>
 The next few questions involve downloading genomics data. You can choose sets of regions, e.g, gene annotation, ChIPseq, RNAseq, ATACseq, GWAS SNPs
 
 
 <br>
-  
+
 __Q9. Using data you download, can you infer what function was tested in the assay that discovered hits1 and hits2? Choose data sets that will be informative about candidate functions. Compute overlaps or mean values of the downloaded data for the union of hits1 and hits2__
 
-```{r,eval=FALSE}
+data DOI: doi:10.17989/ENCSR000AHO
 
+Human gene annotation file is downloaded from: https://www.gencodegenes.org/human/
+
+```{r,eval=FALSE}
+# Clean the dataset
+# gtf = fread("gencode.v44.annotation.gtf")
+# save(gtf, file = "gtf.rda")
+load("gtf.rda")
+gtf = as.data.frame(gtf)
+
+names(gtf) = c("chr", "db", "gene", "start", "end", "v6", "strand", "v8", "anno")
+gtf = gtf %>%
+  select(chr, db, gene, start, end, anno) %>%
+  filter(gene == "gene") %>%
+  filter(db == "ENSEMBL")
+
+gene_name = strsplit(gtf$anno, split = "gene_name") %>%
+  lapply(function(x){x[2]}) %>%
+  unlist() %>%
+  strsplit(split = ";") %>%
+  lapply(function(x){x[1]}) %>%
+  unlist() %>% 
+  gsub(pattern = "\"", replacement = "") %>%
+  gsub(pattern = " ", replacement = "")
+
+gtf = gtf %>%
+  mutate(gene_name = gene_name) %>%
+  select(chr, db, gene, start, end, gene_name, anno) %>%
+  mutate(pos = paste(chr, start, end, sep = "_"))
+
+anno = GRanges(
+  seqnames = Rle(gtf$chr),
+  ranges = IRanges(start = gtf$start, end = gtf$end),
+  strand = "*",
+  metadata = tibble(
+    gene_name = gtf$gene_name,
+    pos = gtf$pos
+  )
+)
+
+anno_df = as.data.frame(anno)
+
+encode = toGRanges(read.table("ENCFF360QRN.bed",sep="\t"))
+overlapRegions(hits1, encode)
+overlapRegions(hits2, encode)
+
+overlap_hits_encode = overlapRegions(mergeRegions(hits1, hits2), encode)
+
+annotated = overlapRegions(overlap_hits_encode, anno)
+annotated = as.data.frame(annotated) %>%
+  mutate(metadata.pos = paste(chr, startB, endB, sep = "_")) %>%
+  left_join(anno_df, by = "metadata.pos") %>%
+  select(chr, startA, endA, metadata.gene_name)
+
+annotated$metadata.gene_name
 ```
 
 <br>
 __Guess what type of genomic element these hits are (i.e., what assay was performed))__
 
-
+Based on the fact that the study is a ChIP seq dataset, the overlapped regions are most likely Transcription factor genes. 
 
 <br>
 <br>
 
 __BONUS Q10. Do you think hits1 and hits2 function in the same cell type?__ <br>
-- Build on your analysis in Q9 by separately testing overlaps with hits1 and hits2. Choose datasets that are from several different cell types <br>
+- Build on your analysis in Q9 by separately testing overlaps with hits1 and hits2. Choose datasets that are from several different cell types 
+<br>
+
+```{r}
+overlapRegions(hits1, encode)
+overlapRegions(hits2, encode)
+
+overlapRegions(hits1, anno) %>%
+  as.data.frame() %>%
+  mutate(metadata.pos = paste(chr, startB, endB, sep = "_")) %>%
+  left_join(anno_df, by = "metadata.pos") %>%
+  select(chr, startA, endA, metadata.gene_name)
+
+overlapRegions(hits2, anno) %>%
+  as.data.frame() %>%
+  mutate(metadata.pos = paste(chr, startB, endB, sep = "_")) %>%
+  left_join(anno_df, by = "metadata.pos") %>%
+  select(chr, startA, endA, metadata.gene_name)
+
+```
+
+
+In my answer in Q9, I annotated both hits1 and hits2 with genes in the regions. It seems that the number of genes overlapping is not the same. In addition, the overlapped regions seem to be different across the two hits. I therefore suspect that hits1 and hits2 are derived from two different cell types.
+
+
+Preparing for gene ontology enrichment analysis.
+```{r}
+hits1_genes = overlapRegions(hits1, anno) %>%
+  as.data.frame() %>%
+  mutate(metadata.pos = paste(chr, startB, endB, sep = "_")) %>%
+  left_join(anno_df, by = "metadata.pos") %>%
+  select(chr, startA, endA, metadata.gene_name)
+
+hits2_genes = overlapRegions(hits2, anno) %>%
+  as.data.frame() %>%
+  mutate(metadata.pos = paste(chr, startB, endB, sep = "_")) %>%
+  left_join(anno_df, by = "metadata.pos") %>%
+  select(chr, startA, endA, metadata.gene_name)
+
+hits1_genes = hits1_genes$metadata.gene_name
+hits2_genes = hits2_genes$metadata.gene_name
+
+# paste(unique(hits1_genes), collapse = "\n") %>% cat()
+# paste(unique(hits2_genes), collapse = "\n") %>% cat()
+```
+
+Gene ontology enrichment analysis was performed on: https://geneontology.org/
+
+The enrichment results for hits1_genes are not significant, however, the results for hits2_genes are significnat, with the top terms being 'neural nucleus development', 'neuron migration', and 'axon guidance'. This suggests that the cell type from hits2 might have something to do with neurons.
+
 <br>
 
 __BONUS Q11: Try matching the random regions more closely to regions in hits1__ <br>
 - On what variables will you match them? e.g., spacing, chromosome, GC-content, distance to nearest gene, masking <br>
 - How does matching affect the z-score and p-value? <br>
+
+If I were to match the random regions more closely with regions in hits1, I would try to match their spacing, GC-content, distance to nearest gene as well as genomic region (exonic, intronic, 3/5' UTR etc.). Performing closer matching is predicted to increase the z score and making the p-value more significant. This is because closer matching reduces the degrees of freedom of selection of regions in the genome. Therefore making the selected random regions more likely to be similar to regions in hits1, which overlaps more with hits2. 
+
 
 
 
