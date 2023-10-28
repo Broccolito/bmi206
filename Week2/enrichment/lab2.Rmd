@@ -9,26 +9,32 @@ output: html_document
 <br>
 
 Import needed packages and set a random number seed
-```{r, message=TRUE}
+```{r, message=FALSE}
 #load packages
-if(!require("BiocManager", quietly = TRUE)){
-  install.packages("BiocManager")
-}
-
-if(!require("regioneR")){
-  BiocManager::install("regioneR")
-  library("regioneR")
-}
-
-if(!require("BSgenome.Hsapiens.UCSC.hg19")){
-  BiocManager::install("BSgenome.Hsapiens.UCSC.hg19")
-  library("BSgenome.Hsapiens.UCSC.hg19")
-}
-
-if(!require("dplyr")){
-  BiocManager::install("dplyr")
-  library("dplyr")
-}
+suppressPackageStartupMessages({
+  suppressWarnings({
+    
+    
+    if(!require("BiocManager", quietly = TRUE)){
+      install.packages("BiocManager")
+    }
+    
+    if(!require("regioneR")){
+      BiocManager::install("regioneR")
+      library("regioneR")
+    }
+    
+    if(!require("BSgenome.Hsapiens.UCSC.hg19")){
+      BiocManager::install("BSgenome.Hsapiens.UCSC.hg19")
+      library("BSgenome.Hsapiens.UCSC.hg19")
+    }
+    
+    if(!require("dplyr")){
+      BiocManager::install("dplyr")
+      library("dplyr")
+    }
+  })
+})
 
 set.seed(492357816)
 ```
@@ -36,7 +42,7 @@ set.seed(492357816)
 
 Read in BED formatted region files: all tested regions and two sets of positives
 Note: these are in hg19 human genome assembly coordinates
-```{r}
+```{r,eval=TRUE}
 all=toGRanges(read.table("all.bed",sep="\t"))
 hits1=toGRanges(read.table("hits1.bed",sep="\t"))
 hits2=toGRanges(read.table("hits2.bed",sep="\t"))
@@ -45,7 +51,7 @@ hits2=toGRanges(read.table("hits2.bed",sep="\t"))
 
 __Q1. How many regions are in hits1? How many in hits2?__ 
 There are 140 regions in hist1 and 322 regions in hist2
-```{r, eval=TRUE}
+```{r,eval=TRUE}
 dim(as.data.frame(hits1@ranges))[1]
 dim(as.data.frame(hits2@ranges))[1]
 ```
@@ -56,7 +62,7 @@ __Q2. Are hits1 and hits2 proper subsets of all the tested regions? Check how ma
 Identical regions in hits1 and hits2 can be found in all. This indicates that both hits1 and hits2 are subsets of all.
 
 Code to identify overlaps
-```{r, eval=TRUE}
+```{r,eval=TRUE}
 (findOverlaps(all, hits1, type = "any") %>%
    as.data.frame() %>%
    dim())[1]
@@ -67,7 +73,7 @@ Code to identify overlaps
 ```
 
 Code to identify exact identical regions.
-```{r}
+```{r,eval=TRUE}
 range_to_df = function(x){
   chr = as.vector(x@seqnames)
   dff = as.data.frame(x@ranges) %>%
@@ -97,7 +103,7 @@ The next few questions explore the overlap of genomic regions in hits1 and hits2
 __Q3. How many regions overlap? How many regions are exactly identical?__
 
 6 regions overlap in hits1 and hits2 and similarly, 6 regions are exactly identical in hits1 and hits2.
-```{r, eval=TRUE}
+```{r,eval=TRUE}
 hits1_hits2_merged = inner_join(hits1_df, hits2_df, by = "chr_start_end")
 dim(hits1_hits2_merged)[1]
 
@@ -137,7 +143,7 @@ numOverlaps(hits2, random_gr)
 
 Since the random region generated does not overlap with either regions in hits1 or hits2, it is hard to say whether the random regions generated using this method will overlap with hits1 or hits2 more. (Not with further testing)
 
-```{r}
+```{r,eval=TRUE}
 # Run perm test using the permTest function
 set.seed(492357816)
 perm_hits1_result = suppressWarnings({
@@ -150,7 +156,7 @@ plot(perm_hits1_result)
 
 <br>
 
-```{r}
+```{r,eval=TRUE}
 set.seed(492357816)
 perm_hits2_result = suppressWarnings({
   permTest(A = hits2, B = hits1, ntimes = 1000, 
@@ -161,7 +167,7 @@ plot(perm_hits2_result)
 ```
 
 
-```{r}
+```{r,eval=TRUE}
 # Run perm test using the self-defined function
 set.seed(492357816)
 hits1_overlap_list = vector()
@@ -176,7 +182,8 @@ for(i in 1:1000){
 
 self_perm_result = t.test(hits1_overlap_list, hits2_overlap_list)
 
-perm_result
+perm_hits1_result
+perm_hits2_result
 self_perm_result
 ```
 
@@ -184,7 +191,7 @@ Based on the results of both the perTest function and the self-defined permutati
 
 <br>
 
-```{r}
+```{r,eval=TRUE}
 # t.test(width(hits1), width(hits2))
 mean(width(hits1)) * dim(hits1_df)[1]
 mean(width(hits2)) * dim(hits2_df)[1]
@@ -196,7 +203,7 @@ The difference can be explained by the comparison of the product of average regi
 
 The smallest p-value that we could have gotten is zero, given that the number of resamples is ~infinitely large.
 
-```{r}
+```{r,eval=TRUE}
 run_perm_test = function(random_seed = 492357816){
   set.seed(random_seed)
   hits1_overlap_list = vector()
@@ -222,7 +229,7 @@ Here three different random seeds are used to run the permutation test. Although
 <br>
 
 __Q5. Repeat Q4 switching the roles of hits1 and hits2. Are conclusions similar?__
-```{r, eval=TRUE}
+```{r,eval=TRUE}
 set.seed(492357816)
 hits1_overlap_list = vector()
 hits2_overlap_list = vector()
@@ -253,7 +260,7 @@ The p values are comparible but the z score is smaller in this test than what wa
 
 <br>
 
-```{r, eval=TRUE}
+```{r,eval=TRUE}
 set.seed(492357816)
 btsp_hits1_result = permTest(A = hits1, B = hits2, ntimes = 1000, 
                              randomize.function = resampleRegions, 
@@ -297,7 +304,7 @@ data DOI: doi:10.17989/ENCSR000AHO
 
 Human gene annotation file is downloaded from: https://www.gencodegenes.org/human/
 
-```{r,eval=FALSE}
+```{r,eval=TRUE}
 # Clean the dataset
 # gtf = fread("gencode.v44.annotation.gtf")
 # save(gtf, file = "gtf.rda")
@@ -363,7 +370,7 @@ __BONUS Q10. Do you think hits1 and hits2 function in the same cell type?__ <br>
 - Build on your analysis in Q9 by separately testing overlaps with hits1 and hits2. Choose datasets that are from several different cell types 
 <br>
 
-```{r}
+```{r,eval=TRUE}
 overlapRegions(hits1, encode)
 overlapRegions(hits2, encode)
 
@@ -386,7 +393,7 @@ In my answer in Q9, I annotated both hits1 and hits2 with genes in the regions. 
 
 
 Preparing for gene ontology enrichment analysis.
-```{r}
+```{r,eval=TRUE}
 hits1_genes = overlapRegions(hits1, anno) %>%
   as.data.frame() %>%
   mutate(metadata.pos = paste(chr, startB, endB, sep = "_")) %>%
