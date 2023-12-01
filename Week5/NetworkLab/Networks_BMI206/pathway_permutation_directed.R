@@ -180,7 +180,7 @@ print(
     theme_bw()+
     scale_y_continuous("Total number of edges")+
     xlab("Number of significant genes")+
-    coord_cartesian(xlim=c(300,1000), ylim=c(1,950))+
+    coord_cartesian(xlim=c(300,1000), ylim=c(1,1400))+
     theme(plot.title = element_text(face="bold", size=16), 
           axis.title.x = element_text(face="bold", size=16),
           axis.title.y = element_text(face="bold", size=16, angle=90),
@@ -202,7 +202,7 @@ print(
     geom_point(data=actual.size,aes(x=as.numeric(Extracted_nodes), y=as.numeric(largest_nodes), label=Region))+
     
     theme_bw()+
-    coord_cartesian(xlim=c(300,1000), ylim=c(1,300))+
+    coord_cartesian(xlim=c(300,1000), ylim=c(1,1400))+
     
     scale_y_continuous("Size of largest\nconnected component")+
     xlab("Number of significant gene")+
@@ -225,7 +225,7 @@ print(
     scale_colour_manual(aes(percentile), values = qcolours)+
     guides(colour=guide_legend(reverse=TRUE))+
     geom_point(data=actual.size,aes(x=as.numeric(Edges), y=as.numeric(largest_nodes), label=Region))+
-    coord_cartesian(xlim=c(50,1000), ylim=c(1,300))+
+    coord_cartesian(xlim=c(50,1000), ylim=c(1,1400))+
     theme_bw()+
     scale_y_continuous("Size of largest\nconnected component")+
     xlab("Total number of edges")+
