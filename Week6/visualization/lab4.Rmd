@@ -1,0 +1,131 @@
+---
+title: 'Lab 4: Visualization'
+Subtitle: "BMI 206"
+author: "Wanjun Gu"
+date: "12/3/2021"
+output: html_document
+---
+<br>
+<br>
+
+
+```{r, eval=TRUE}
+suppressPackageStartupMessages({
+  library(Seurat)
+  library(dplyr)
+  library(ggplot2)
+  library(ggpubr)
+})
+```
+
+
+Read in the genes-by-cells read count matrix sc.mat
+```{r, eval=TRUE}
+load("visualization.RData")
+```
+<br>
+
+__Take a look at a few rows and columns of the matrix__
+```{r, eval=TRUE}
+sc.mat[1:10,1:10]
+```
+<br>
+
+__How many cells?__
+```{r, eval=TRUE}
+dim(sc.mat)[2]
+```
+<br>
+
+__How many genes?__
+```{r,eval=TRUE}
+dim(sc.mat)[1]
+```
+<br>
+
+__Produce a summary of counts for the first cell__
+```{r, eval=TRUE}
+summary(as.vector(sc.mat[, 1]))
+```
+<br>
+
+__Produce a summary of counts for the APOL2 gene__
+```{r, eval=TRUE}
+sc.mat[which(rownames(sc.mat) == "APOL2"),] %>%
+  as.vector() %>%
+  summary()
+```
+<br>
+
+__Get just the genes that are expressed in at least 10 cells__
+```{r, eval=TRUE}
+sc.mat.expr=sc.mat[apply(sc.mat, MARGIN = 1, function(x){sum(x) >= 10}),]
+```
+<br>
+
+__How many genes are retained?__
+```{r, eval=TRUE}
+dim(sc.mat.expr)[1]
+```
+<br>
+
+__Normalize to median depth for each cell and take the log__
+* hint: add a pseudocount of 1 to avoid log(0)
+```{r, eval=TRUE}
+n.umis=median(colSums(sc.mat.expr))
+sc.mat.expr = log1p(sc.mat.expr / n.umis)
+```
+<br>
+
+__Visualize distribution of normalized expression values for first cell__
+```{r,eval=TRUE}
+hist(sc.mat.norm[,1])
+```
+<br>
+
+__Visualize distribution of normalized expression values for first gene__
+```{r, eval=TRUE}
+hist(sc.mat.norm[1,])
+```
+<br>
+<br>
+
+
+*NOTE: prcomp and Rtsne are slow on a matrix this big, so you can use the saved data frame sc.df that was loaded with the input count matrix two dimensions for PCA and two for tSNE were saved as columns "pc1", "pc2", "tsne1", "tsne2" 
+
+<br>
+
+__Run PCA on the normalized expression matrix__
+```{r,eval=FALSE}
+# pcs = prcomp(sc.mat.norm, rank.=30)
+```
+<br>
+
+__Visualize PCA results__
+```{r,eval=FALSE}
+ggplot(sc.df, aes(x = pc1, y = pc2, color = cell.type)) + 
+  geom_point() + 
+  xlab("PC1") + 
+  ylab("PC2") + 
+  labs(color = "Cell Type") + 
+  theme_minimal()
+```
+<br>
+
+__Run tsne on the normalized expression matrix using PCA as starting values__
+```{r,eval=FALSE}
+# tsne=Rtsne(pcs$x)
+```
+<br>
+
+__Visualize TSNE results__
+```{r,eval=TRUE}
+ggplot(sc.df, aes(x = tsne1, y = tsne2, color = cell.type)) + 
+  geom_point() + 
+  xlab("tSNE 1") + 
+  ylab("tSNE 2") + 
+  labs(color = "Cell Type") + 
+  theme_minimal()
+```
+
+
