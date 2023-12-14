@@ -102,7 +102,7 @@ __Run PCA on the normalized expression matrix__
 <br>
 
 __Visualize PCA results__
-```{r,eval=FALSE}
+```{r,eval=TRUE}
 ggplot(sc.df, aes(x = pc1, y = pc2, color = cell.type)) + 
   geom_point() + 
   xlab("PC1") + 
